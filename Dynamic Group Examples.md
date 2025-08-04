@@ -64,6 +64,34 @@ user.jobTitle -contains "Manager" or user.jobTitle -contains "Director" or user.
 (user.objectId -ne null) and (user.userType -eq "Member")
 ```
 **Description:** All users with Member account type (excludes Guest users).
+> **Note**: Could be used as "All Internal Users" if externals are not assigned internal licenses, e.g., contractors, etc.
+
+#### All Users Except Admins
+```
+(user.displayName -notContains "admin")
+```
+**Description:** All users except those with "admin" in their display name.
+
+#### All Directory Users
+```
+user.objectId -ne null
+```
+**Description:** Checks that the user exists in the directory (has a valid object ID). Includes both member and guest user types.
+
+### License Type-Based Groups
+
+#### All Intune Licensed Users
+```
+user.assignedPlans -any (assignedPlan.servicePlanId -eq "c1ec4a95-1f05-45b3-a911-aa3fa01094f5" -and assignedPlan.capabilityStatus -eq "Enabled")
+```
+**Description:** All users with a license SKU that includes Intune.
+
+#### All Entra ID P1 Users
+```
+user.assignedPlans -any (assignedPlan.servicePlanId -eq "41781fb2-bc02-4b7c-bd55-b576c07bb09d" -and assignedPlan.capabilityStatus -eq "Enabled")
+```
+**Description:** All users with a license SKU that includes Entra ID P1.
+> **Note**: This will also include users that are licensed for Entra ID P2 in a bundle, such as Entra Suite, or Microsoft 365 E5. Use a separate group for Entra ID P2 only users.
 
 ## Device-Based Groups
 
