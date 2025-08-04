@@ -17,9 +17,14 @@ $Country             = "United Kingdom"           # Country or region (Graph pro
 
 $EmployeeId          = "FIN-00422"
 $EmployeeType        = "Employee"                 # e.g., Employee | Contractor | Vendor
-$EmployeeHireDate    = "2025-08-03T00:00:00Z"     # ISO 8601 UTC
+$EmployeeHireDate    = "2025-08-04T00:00:00Z"     # ISO 8601 UTC
 # Optional:
 # $EmployeeLeaveDateTime = "2026-09-01T00:00:00Z"
+
+# === Manager (optional) ===
+# Provide EITHER the manager's UPN (recommended) OR their objectId (GUID). Leave both blank to skip.
+$ManagerUPN          = "alex.wilber@contoso.com"
+$ManagerObjectId     = ""   # e.g., "075b32dd-edb7-47cf-89ef-f3f733683a3f"
 
 # Build identity values (Proper Case for first/last; domain lower-case)
 $ti                 = (Get-Culture).TextInfo
@@ -122,6 +127,8 @@ $params = @{
 
   # Optional: set primary SMTP to match alias (some orgs set this later via EXO)
   # ProxyAddresses    = @("SMTP:$MailNickname@$($Domain.ToLower())")
+  # Or:
+  # Mail = "$MailNickname@$($Domain.ToLower())"
 
   # Placeholder - password added just-in-time below
   PasswordProfile   = @{
@@ -160,6 +167,29 @@ for ($attempt = 1; $attempt -le $maxAttempts -and -not $NewUser; $attempt++) {
     }
 }
 
+# --- Set Manager (optional) ---
+$ManagerIdResolved = $null
+if ($NewUser -and ($ManagerUPN -or $ManagerObjectId)) {
+    try {
+        if ($ManagerObjectId) {
+            $ManagerIdResolved = $ManagerObjectId
+        } elseif ($ManagerUPN) {
+            $ManagerIdResolved = (Get-MgUser -UserId $ManagerUPN -Property Id).Id
+        }
+
+        if ($ManagerIdResolved) {
+            $refBody = @{ '@odata.id' = "https://graph.microsoft.com/v1.0/users/$ManagerIdResolved" }
+            Set-MgUserManagerByRef -UserId $NewUser.Id -BodyParameter $refBody -ErrorAction Stop
+            Write-Host "Manager set for $($NewUser.UserPrincipalName)."
+        } else {
+            Write-Warning "Manager could not be resolved from the provided inputs."
+        }
+    }
+    catch {
+        Write-Warning "Failed to set manager: $($_.Exception.Message)"
+    }
+}
+
 if ($NewUser) {
     # OPTIONAL: reveal password for handover (off by default; set $true to enable)
     $RevealTempToConsole = $false
@@ -176,7 +206,15 @@ if ($NewUser) {
 
     # Verify key properties (employeeHireDate must be requested)
     $Check = Get-MgUser -UserId $NewUser.Id -Property "id,displayName,userPrincipalName,mailNickname,department,country,employeeHireDate,jobTitle,usageLocation,proxyAddresses"
-    $Check | Select-Object Id, DisplayName, UserPrincipalName, MailNickname, Department, Country, EmployeeHireDate, JobTitle, UsageLocation, ProxyAddresses
+    $Out = $Check | Select-Object Id, DisplayName, UserPrincipalName, MailNickname, Department, Country, EmployeeHireDate, JobTitle, UsageLocation, ProxyAddresses
+
+    # If we set a manager, fetch basic manager info for display
+    if ($ManagerIdResolved) {
+        $Mgr = Get-MgUser -UserId $ManagerIdResolved -Property "id,displayName,userPrincipalName"
+        Write-Host ("Manager: {0} ({1})" -f $Mgr.DisplayName, $Mgr.UserPrincipalName)
+    }
+
+    $Out
 } else {
     Write-Error "User creation failed after $maxAttempts attempt(s)."
 }

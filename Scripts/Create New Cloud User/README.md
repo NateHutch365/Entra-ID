@@ -15,9 +15,10 @@ This script creates a new **Entra ID** (Azure AD) user with a temporary password
   * `usageLocation` (2‑letter ISO) and `country` (free text)
   * `employeeId`, `employeeType`, `employeeHireDate`
 * Optionally: you can stamp the **primary SMTP** to match the alias.
+* Optionally: sets the user's **manager** (via `ManagerUPN` or `ManagerObjectId`).
 * Outputs a quick verification of key properties after creation.
 
-> **Does not**: assign licenses, add to groups, set manager, or provision mailbox.
+> **Does not**: assign licenses, add to groups, or provision mailbox.
 
 ---
 
@@ -50,20 +51,22 @@ This script creates a new **Entra ID** (Azure AD) user with a temporary password
 
 ## Inputs and what they mean
 
-| Variable                 | Required | Example                  | Notes                                            |
-| ------------------------ | :------: | ------------------------ | ------------------------------------------------ |
-| `$GivenName`, `$Surname` |    ✔️    | `"Samantha"`, `"Young"`  | Used to build DisplayName, UPN, and mailNickname |
-| `$Domain`                |    ✔️    | `"contoso.com"`          | Must be a verified Entra ID domain               |
-| `$Department`            |    ✔️    | `"Finance"`              | String                                           |
-| `$JobTitle`              |          | `"Analyst"`              | String                                           |
-| `$CompanyName`           |          | `"Contoso Ltd"`          | String                                           |
-| `$OfficeLocation`        |          | `"London HQ"`            | String                                           |
-| `$UsageLocation`         |    ✔️    | `"GB"`                   | Two‑letter ISO code; required before licensing   |
-| `$Country`               |          | `"United Kingdom"`       | Free‑text country/region (Graph `country`)       |
-| `$EmployeeId`            |          | `"FIN-00422"`            | External/HR identifier                           |
-| `$EmployeeType`          |          | `"Employee"`             | e.g., Employee, Contractor, Vendor               |
-| `$EmployeeHireDate`      |    ✔️    | `"2025-08-03T00:00:00Z"` | ISO 8601 UTC string                              |
-| `$EmployeeLeaveDateTime` |          |                          | Optional; uncomment to set at create time        |
+| Variable                 | Required | Example                                                     | Notes                                                    |
+| ------------------------ | -------- | ----------------------------------------------------------- | -------------------------------------------------------- |
+| `$GivenName`, `$Surname` | ✔️       | `"Samantha"`, `"Young"`                                     | Used to build DisplayName, UPN, and mailNickname         |
+| `$Domain`                | ✔️       | `"contoso.com"`                                             | Must be a verified Entra ID domain                       |
+| `$Department`            | ✔️       | `"Finance"`                                                 | String                                                   |
+| `$JobTitle`              |          | `"Analyst"`                                                 | String                                                   |
+| `$CompanyName`           |          | `"Contoso Ltd"`                                             | String                                                   |
+| `$OfficeLocation`        |          | `"London HQ"`                                               | String                                                   |
+| `$UsageLocation`         | ✔️       | `"GB"`                                                      | Two‑letter ISO code; required before licensing           |
+| `$Country`               |          | `"United Kingdom"`                                          | Free‑text country/region (Graph `country`)               |
+| `$EmployeeId`            |          | `"FIN-00422"`                                               | External/HR identifier                                   |
+| `$EmployeeType`          |          | `"Employee"`                                                | e.g., Employee, Contractor, Vendor                       |
+| `$EmployeeHireDate`      | ✔️       | `"2025-08-03T00:00:00Z"`                                    | ISO 8601 UTC string                                      |
+| `$EmployeeLeaveDateTime` |          |                                                             | Optional; uncomment to set at create time                |
+| `$ManagerUPN`            |          | "[alex.wilber@contoso.com](mailto:alex.wilber@contoso.com)" | Provide either this or `$ManagerObjectId` to set manager |
+| `$ManagerObjectId`       |          | "075b32dd-edb7-47cf-89ef-f3f733683a3f"                      | GUID; used if UPN not provided                           |
 
 ### Derived values
 
@@ -78,7 +81,7 @@ This script creates a new **Entra ID** (Azure AD) user with a temporary password
 ## Password handling
 
 * The script **generates a password** with at least one lower, upper, digit, and symbol, using a cryptographically secure RNG.
-* Password is stored as a **`SecureString`**; it is converted to plaintext **only** just before calling `New-MgUser`, then zeroed out.
+* Password is stored as a `SecureString`; it is converted to plaintext **only** just before calling `New-MgUser`, then zeroed out.
 * If Graph rejects the password (banned list/complexity), the script **regenerates** a stronger/longer one and retries (up to 3 attempts).
 * Printing the password is **off by default**. Toggle `$RevealTempToConsole = $true` to echo it once (for handover). Use sparingly.
 
@@ -88,7 +91,7 @@ This script creates a new **Entra ID** (Azure AD) user with a temporary password
 
 You can control the user’s primary SMTP address if you want it to match the alias `Firstname.Lastname@domain`.
 
-**A) At create time via `ProxyAddresses`**
+**A) At create time via `proxyAddresses`**
 
 ```powershell
 # In $params
@@ -98,7 +101,7 @@ ProxyAddresses = @("SMTP:$MailNickname@$($Domain.ToLower())")
 * Uppercase `SMTP:` sets the **primary** address. Lowercase `smtp:` adds an alias.
 * Some tenants may restrict writing `proxyAddresses` directly; if you see a Graph error, use B or C.
 
-**B) At create time via `Mail`**
+**B) At create time via `mail`**
 
 ```powershell
 # In $params
@@ -121,6 +124,31 @@ Set-Mailbox -Identity $UserPrincipalName -PrimarySmtpAddress "$MailNickname@$($D
 
 ---
 
+## Manager (optional)
+
+You can set the user's manager during creation by providing either **`$ManagerUPN`** (recommended) or **`$ManagerObjectId`** (GUID). The script resolves the value and calls `Set-MgUserManagerByRef`.
+
+**How to use**
+
+```powershell
+# Provide either UPN or ObjectId (leave the other blank)
+$ManagerUPN = "alex.wilber@contoso.com"
+$ManagerObjectId = ""  # e.g., 075b32dd-edb7-47cf-89ef-f3f733683a3f
+```
+
+**Permissions**
+
+* Scope: `User.ReadWrite.All` (already requested in the script)
+* Role: **User Administrator** or **Global Administrator**
+
+**Verify**
+
+```powershell
+Get-MgUserManager -UserId $NewUser.Id | Select-Object DisplayName, UserPrincipalName
+```
+
+---
+
 ## What to expect on success
 
 * The script returns a `Get-MgUser` projection with:
@@ -128,6 +156,7 @@ Set-Mailbox -Identity $UserPrincipalName -PrimarySmtpAddress "$MailNickname@$($D
   * `Id`, `DisplayName`, `UserPrincipalName`, `MailNickname`
   * `Department`, `Country`, `EmployeeHireDate`, `JobTitle`, `UsageLocation`
   * (If enabled) `ProxyAddresses`
+  * If a manager was set, you'll also see a console line confirming it (and you can verify with `Get-MgUserManager`).
 
 ---
 
