@@ -93,6 +93,15 @@ user.assignedPlans -any (assignedPlan.servicePlanId -eq "41781fb2-bc02-4b7c-bd55
 **Description:** All users with a license SKU that includes Entra ID P1.
 > **Note**: This will also include users that are licensed for Entra ID P2 in a bundle, such as Entra Suite, or Microsoft 365 E5. Use a separate group for Entra ID P2 only users.
 
+### Testing / Administrative Type-Based Groups
+
+#### Random User Sample for Testing
+```
+(user.assignedPlans -any (assignedPlan.servicePlanId -eq "41781fb2-bc02-4b7c-bd55-b576c07bb09d" -and assignedPlan.capabilityStatus -eq "Enabled")) and ((user.objectId -startsWith "A") or (user.objectId -startsWith "1") or (user.objectId -startsWith "2") or (user.objectId -startsWith "3"))
+```
+**Description:** Will populate randomly based on objectID attribute.
+> **Note**: Useful for creating test/pilot user groups. Update the the -startsWith on additional groups to build out additional rings, e.g., ((user.objectId -startsWith "B") or (user.objectId -startsWith "3") or (user.objectId -startsWith "4") or (user.objectId -startsWith "5"))
+
 ## Device-Based Groups
 
 ### Operating System Groups
