@@ -17,7 +17,7 @@ This script creates a new **Entra ID** (Azure AD) user with a temporary password
 * Optionally: you can stamp the **primary SMTP** to match the alias.
 * Outputs a quick verification of key properties after creation.
 
-> **Does not**: assign licenses, add to groups, set manager, or provision mailbox (those can be added if needed).
+> **Does not**: assign licenses, add to groups, set manager, or provision mailbox.
 
 ---
 
@@ -186,5 +186,3 @@ $EmployeeHireDate = "2025-08-03T00:00:00Z"
 
 # Run the rest of the script as-is
 ```
-
-> Need a function version with switches for setting primary SMTP, assigning groups, or licensing? Say the word and we’ll extend it neatly.
