@@ -17,6 +17,9 @@ AppId: a0e84e36-b067-4d5c-ab4a-3db38e598ae2
 App Name: **TVM app**
 AppId: e724aa31-0f56-4018-b8be-f8cb82ca1196
 
+App Name: **Global Secure Access Client**
+AppId: cde6adac-58fd-4b78-8d6d-9beaf1b0d668
+
 This PowerShell script connects to Microsoft Graph, creates a service principal for the **AppId** specified, and retrieves its details.
 
 ## Description
